@@ -1,0 +1,163 @@
+diff --git a/tests/Feature/CsvImportTest.php b/tests/Feature/CsvImportTest.php
+new file mode 100644
+index 0000000..1a2b3cd
+--- /dev/null
++++ b/tests/Feature/CsvImportTest.php
+@@
++<?php
++
++namespace Tests\Feature;
++
++use Tests\TestCase;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use App\Models\Product;
++
++class CsvImportTest extends TestCase
++{
++    use RefreshDatabase;
++
++    /** @test */
++    public function import_endpoint_produces_correct_summary_for_mixed_rows()
++    {
++        Product::factory()->create([
++            'sku' => 'SKU_EXIST',
++            'name' => 'OldName',
++            'price' => 100
++        ]);
++
++        $csv = <<<CSV
++sku,name,price
++SKU_EXIST,NewName,150
++SKU_NEW,FirstName,200
++BAD_ROW
++SKU_NEW,DuplicateRow,300
++CSV;
++
++        $encoded = base64_encode($csv);
++        $response = $this->postJson('/api/import-products', ['csv' => $encoded]);
++        $response->assertStatus(200);
++
++        $result = $response->json('result');
++        $this->assertEquals(4, $result['total']);
++        $this->assertEquals(1, $result['imported']);    // new SKU
++        $this->assertEquals(1, $result['updated']);     // existing SKU
++        $this->assertEquals(2, $result['invalid']);     // bad row + duplicate
++    }
++}
+diff --git a/tests/Feature/UploadChunksTest.php b/tests/Feature/UploadChunksTest.php
+new file mode 100644
+index 0000000..92c0def
+--- /dev/null
++++ b/tests/Feature/UploadChunksTest.php
+@@
++<?php
++
++namespace Tests\Feature;
++
++use Tests\TestCase;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Facades\Storage;
++use Illuminate\Http\UploadedFile;
++use App\Models\Product;
++use App\Models\Upload;
++use DB;
++
++class UploadChunksTest extends TestCase
++{
++    use RefreshDatabase;
++
++    /** @test */
++    public function chunked_upload_and_finalize_creates_variants_and_links_primary_image()
++    {
++        Storage::fake('public');
++
++        // dummy image
++        $file = UploadedFile::fake()->image('test.jpg', 1200, 800);
++        $checksum = hash_file('sha256', $file->getPathname());
++
++        // start session
++        $resp = $this->postJson('/api/uploads', []);
++        $uploadId = $resp->json('upload_id');
++
++        // simulate direct put (skip manual chunk splitting for brevity)
++        $this->withHeaders([
++            'Content-Range' => "bytes 0-" . ($file->getSize()-1) . "/" . $file->getSize(),
++            'X-Upload-Checksum' => $checksum,
++        ])->putJson("/api/uploads/{$uploadId}/chunk", [
++            'chunk' => base64_encode(file_get_contents($file->getPathname()))
++        ]);
++
++        // finalize
++        $final = $this->postJson("/api/uploads/{$uploadId}/complete", [
++            'checksum' => $checksum
++        ]);
++        $final->assertStatus(200);
++
++        // assert variants exist
++        Storage::disk('public')->assertExists("images/{$uploadId}_256.jpg");
++        Storage::disk('public')->assertExists("images/{$uploadId}_512.jpg");
++        Storage::disk('public')->assertExists("images/{$uploadId}_1024.jpg");
++
++        // attach to product
++        $product = Product::factory()->create();
++        $this->postJson("/api/products/{$product->id}/attach-image", [
++            'upload_id' => $uploadId
++        ])->assertStatus(200);
++
++        $product->refresh();
++        $this->assertNotNull($product->primary_image_id);
++    }
++
++    /** @test */
++    public function finalize_fails_when_checksum_mismatch_and_keeps_no_files()
++    {
++        Storage::fake('public');
++        $file = UploadedFile::fake()->image('bad.jpg', 600, 600);
++        $checksum = hash_file('sha256', $file->getPathname());
++
++        $resp = $this->postJson('/api/uploads', []);
++        $uploadId = $resp->json('upload_id');
++
++        $this->withHeaders([
++            'Content-Range' => "bytes 0-" . ($file->getSize()-1) . "/" . $file->getSize(),
++            'X-Upload-Checksum' => $checksum,
++        ])->putJson("/api/uploads/{$uploadId}/chunk", [
++            'chunk' => base64_encode(file_get_contents($file->getPathname()))
++        ]);
++
++        // finalize with wrong checksum
++        $resp = $this->postJson("/api/uploads/{$uploadId}/complete", [
++            'checksum' => 'deadbeef'
++        ]);
++        $resp->assertStatus(422);
++
++        Storage::disk('public')->assertMissing("images/{$uploadId}_256.jpg");
++        Storage::disk('public')->assertMissing("images/{$uploadId}_512.jpg");
++        Storage::disk('public')->assertMissing("images/{$uploadId}_1024.jpg");
++    }
++
++    /** @test */
++    public function reattaching_same_upload_as_primary_is_idempotent()
++    {
++        $product = Product::factory()->create();
++        $upload = Upload::factory()->create();
++
++        $this->postJson("/api/products/{$product->id}/attach-image", ['upload_id' => $upload->id])
++             ->assertStatus(200);
++        $firstPrimary = $product->refresh()->primary_image_id;
++
++        // re-attach
++        $this->postJson("/api/products/{$product->id}/attach-image", ['upload_id' => $upload->id])
++             ->assertStatus(200);
++        $secondPrimary = $product->refresh()->primary_image_id;
++
++        $this->assertEquals($firstPrimary, $secondPrimary);
++
++        $count = DB::table('imageables')->where([
++            'imageable_type' => Product::class,
++            'imageable_id' => $product->id,
++            'upload_id' => $upload->id
++        ])->count();
++        $this->assertEquals(1, $count);
++    }
++}
