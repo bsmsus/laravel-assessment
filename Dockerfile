@@ -11,10 +11,10 @@ RUN npm install && npm run build
 # Stage 2: PHP-FPM + Nginx container
 FROM php:8.3-fpm AS backend
 
-# Install system dependencies and PHP extensions
+# Install system dependencies and PHP extensions (with gettext-base for envsubst)
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
-    nginx supervisor \
+    nginx supervisor gettext-base \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo pdo_mysql mbstring gd zip \
     && pecl install redis \
@@ -31,12 +31,11 @@ RUN mkdir -p public/build
 COPY --from=frontend /app/public/build ./public/build
 
 # Copy composer files and install deps
-COPY composer.json ./
+COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
 # Copy full app
 COPY . .
-
 
 # Git safe directory fix
 RUN git config --global --add safe.directory /var/www/html
@@ -53,17 +52,15 @@ RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants
 # ------------------------
 
 # Nginx config
-# Nginx config – wipe defaults and copy ours
 RUN rm -f /etc/nginx/conf.d/* && rm -f /etc/nginx/sites-enabled/*
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
 # Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
 
+# Entrypoint for PORT substitution
 COPY ./entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-# Start supervisord (manages php-fpm + nginx)
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
