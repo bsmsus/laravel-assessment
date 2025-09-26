@@ -60,8 +60,10 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 # Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
 
-# Expose port 8080 (Railway keeps injecting this)
-EXPOSE 8080
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Start supervisord (manages php-fpm + nginx)
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
