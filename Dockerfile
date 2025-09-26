@@ -1,13 +1,16 @@
 # Stage 1: Build frontend assets
 FROM node:22 AS frontend
 WORKDIR /app
+
 COPY package*.json vite.config.js ./
 COPY resources ./resources
 COPY public ./public
+
 RUN npm install && npm run build
 
+
 # Stage 2: Laravel with PHP
-FROM php:8.3-fpm AS backend
+FROM php:8.3-cli AS backend   # use cli instead of fpm so artisan serve works
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -30,7 +33,7 @@ COPY --from=frontend /app/public/build ./public/build
 # Copy composer files
 COPY composer.json composer.lock ./
 
-# Install dependencies without scripts (artisan not copied yet)
+# Install dependencies (no dev, no scripts yet)
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
 # Copy the full app
@@ -43,9 +46,14 @@ RUN git config --global --add safe.directory /var/www/html
 RUN php artisan package:discover --ansi
 
 # Ensure storage dirs exist
-RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants
+RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
+    && chown -R www-data:www-data storage bootstrap/cache
 
-# Set permissions
-RUN chown -R www-data:www-data storage bootstrap/cache
+# Expose port for local dev (Railway ignores EXPOSE, but useful for docker run)
+EXPOSE 8080
 
-CMD ["php-fpm", "-F"]
+# Start Laravel server bound to Railway's injected $PORT
+CMD php artisan migrate --force && \
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan serve --host=0.0.0.0 --port=${PORT}
