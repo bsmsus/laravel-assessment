@@ -63,4 +63,7 @@ COPY ./supervisord.conf /etc/supervisord.conf
 EXPOSE 80
 
 # Start supervisord (manages php-fpm + nginx)
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
