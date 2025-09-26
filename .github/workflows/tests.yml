@@ -20,6 +20,15 @@ jobs:
           php-version: '8.2'
           extensions: mbstring, bcmath, pdo_sqlite
           coverage: none
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+      - run: npm run build
+
 
       - name: Copy .env
         run: cp .env.example .env
