@@ -9,12 +9,13 @@ COPY public ./public
 RUN npm install && npm run build
 
 
-# Stage 2: Laravel with PHP
-FROM php:8.3-cli AS backend
+# Stage 2: PHP-FPM + Nginx container
+FROM php:8.3-fpm AS backend
 
-# Install system dependencies
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
+    nginx supervisor \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo pdo_mysql mbstring gd zip \
     && pecl install redis \
@@ -30,30 +31,36 @@ WORKDIR /var/www/html
 RUN mkdir -p public/build
 COPY --from=frontend /app/public/build ./public/build
 
-# Copy composer files
+# Copy composer files and install PHP deps
 COPY composer.json composer.lock ./
-
-# Install dependencies (no dev, no scripts yet)
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
-# Copy the full app
+# Copy full app
 COPY . .
 
 # Git safe directory fix
 RUN git config --global --add safe.directory /var/www/html
 
-# Run artisan scripts now that artisan exists
+# Run artisan discover
 RUN php artisan package:discover --ansi
 
 # Ensure storage dirs exist
 RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
     && chown -R www-data:www-data storage bootstrap/cache
 
-# Expose port for local dev (Railway ignores EXPOSE, but useful for docker run)
-EXPOSE 8080
+# ------------------------
+# Nginx & Supervisord setup
+# ------------------------
 
-# Start Laravel server bound to Railway's injected $PORT
-CMD php artisan migrate --force && \
-    php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan serve --host=0.0.0.0 --port=${PORT}
+# Nginx config
+RUN rm /etc/nginx/sites-enabled/default
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
+
+# Supervisord config
+COPY ./supervisord.conf /etc/supervisord.conf
+
+# Expose HTTP port
+EXPOSE 80
+
+# Start supervisord (manages php-fpm + nginx)
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
