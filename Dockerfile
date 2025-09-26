@@ -34,7 +34,7 @@ COPY --from=frontend /app/public/build ./public/build
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
-# Copy full app
+# Copy full app (⚠️ don't copy .env!)
 COPY . .
 
 # Git safe directory fix
@@ -47,11 +47,11 @@ RUN php artisan package:discover --ansi
 RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
     && chown -R www-data:www-data storage bootstrap/cache
 
-# Expose a port (Railway injects $PORT, EXPOSE is just for local use)
+# Expose a port (Railway injects $PORT at runtime)
 EXPOSE 8080
 
 # Run migrations + cache + start Laravel server on Railway's $PORT
 CMD php artisan migrate --force && \
     php artisan config:cache && \
     php artisan route:cache && \
-    php artisan serve --host=0.0.0.0 --port=${PORT}
+    php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
