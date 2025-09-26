@@ -29,4 +29,4 @@ jobs:
         run: php artisan migrate --force
 
       - name: Run tests
-        run: php artisan test --no-interaction --stop-on-failure
+        run: php artisan test --stop-on-failure
