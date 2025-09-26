@@ -1,0 +1,124 @@
+diff --git a/app/Http/Controllers/ImageUploadController.php b/app/Http/Controllers/ImageUploadController.php
+index 1234567..89abcde 100644
+--- a/app/Http/Controllers/ImageUploadController.php
++++ b/app/Http/Controllers/ImageUploadController.php
+@@
+     public function chunk(Request $request)
+     {
+-        $file = $request->file('file');
+-        $file->storeAs("chunks/{$request->upload_id}", $request->chunk_index);
++        $file = $request->file('file');
++        // Ensure chunks directory exists
++        \Storage::disk('public')->makeDirectory("chunks/{$request->upload_id}");
++        $file->storeAs("chunks/{$request->upload_id}", $request->chunk_index, 'public');
+ 
+         return response()->json(['status' => 'ok']);
+     }
+diff --git a/database/factories/ProductFactory.php b/database/factories/ProductFactory.php
+new file mode 100644
+index 0000000..1a2b3cd
+--- /dev/null
++++ b/database/factories/ProductFactory.php
+@@
++<?php
++
++namespace Database\Factories;
++
++use Illuminate\Database\Eloquent\Factories\Factory;
++use App\Models\Product;
++
++class ProductFactory extends Factory
++{
++    protected $model = Product::class;
++
++    public function definition(): array
++    {
++        return [
++            'sku'   => $this->faker->unique()->ean8,
++            'name'  => $this->faker->words(3, true),
++            'price' => $this->faker->numberBetween(100, 1000),
++        ];
++    }
++}
+diff --git a/database/factories/UploadFactory.php b/database/factories/UploadFactory.php
+new file mode 100644
+index 0000000..92c0def
+--- /dev/null
++++ b/database/factories/UploadFactory.php
+@@
++<?php
++
++namespace Database\Factories;
++
++use Illuminate\Database\Eloquent\Factories\Factory;
++use App\Models\Upload;
++
++class UploadFactory extends Factory
++{
++    protected $model = Upload::class;
++
++    public function definition(): array
++    {
++        return [
++            'file_path' => 'uploads/'.$this->faker->uuid.'.jpg',
++            'checksum'  => $this->faker->sha256,
++            'status'    => 'completed',
++        ];
++    }
++}
+diff --git a/tests/Feature/ImageUploadTest.php b/tests/Feature/ImageUploadTest.php
+index abcdef0..fedcba9 100644
+--- a/tests/Feature/ImageUploadTest.php
++++ b/tests/Feature/ImageUploadTest.php
+@@
+-        $ctx = hash_init('sha256');
+-        $fp  = fopen(Storage::path($file->getRealPath()), 'rb');
+-        hash_update_stream($ctx, $fp);
+-        fclose($fp);
+-        $checksum = hash_final($ctx);
++        $checksum = hash_file('sha256', $file->getPathname());
+diff --git a/tests/Feature/UploadChunksTest.php b/tests/Feature/UploadChunksTest.php
+index 13579bd..2468ace 100644
+--- a/tests/Feature/UploadChunksTest.php
++++ b/tests/Feature/UploadChunksTest.php
+@@ class UploadChunksTest extends TestCase
+-        // start session
+-        $resp = $this->postJson('/api/uploads', []);
+-        $uploadId = $resp->json('upload_id');
+-
+-        // simulate direct put (skip manual chunk splitting for brevity)
+-        $this->withHeaders([
+-            'Content-Range' => "bytes 0-" . ($file->getSize()-1) . "/" . $file->getSize(),
+-            'X-Upload-Checksum' => $checksum,
+-        ])->putJson("/api/uploads/{$uploadId}/chunk", [
+-            'chunk' => base64_encode(file_get_contents($file->getPathname()))
+-        ]);
+-
+-        // finalize
+-        $final = $this->postJson("/api/uploads/{$uploadId}/complete", [
+-            'checksum' => $checksum
+-        ]);
+-        $final->assertStatus(200);
++        // start + chunk + finalize using current controller routes
++        $resp = $this->postJson('/api/uploads/chunk', [
++            'upload_id'   => 'test123',
++            'chunk_index' => 0,
++            'file'        => $file,
++        ]);
++        $resp->assertStatus(200);
++
++        $final = $this->postJson('/api/uploads/complete', [
++            'upload_id' => 'test123',
++            'checksum'  => $checksum,
++        ]);
++        $final->assertStatus(200);
+@@ class UploadChunksTest extends TestCase
+-        $resp = $this->postJson("/api/uploads/{$uploadId}/complete", [
+-            'checksum' => 'deadbeef'
+-        ]);
+-        $resp->assertStatus(422);
++        $resp = $this->postJson('/api/uploads/complete', [
++            'upload_id' => 'bad123',
++            'checksum'  => 'deadbeef'
++        ]);
++        $resp->assertStatus(422);
