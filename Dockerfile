@@ -53,9 +53,9 @@ RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants
 # ------------------------
 
 # Nginx config
-RUN rm -f /etc/nginx/conf.d/* && \
-    rm -f /etc/nginx/sites-enabled/* && \
-    cp /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
+# Nginx config – wipe defaults and copy ours
+RUN rm -f /etc/nginx/conf.d/* && rm -f /etc/nginx/sites-enabled/*
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
 # Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
