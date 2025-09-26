@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('import_summaries', function (Blueprint $table) {
             $table->id();
-            $table->string('file_path');
+            $table->string('file_path')->nullable();
             $table->integer('total')->default(0);
             $table->integer('imported')->default(0);
             $table->integer('updated')->default(0);

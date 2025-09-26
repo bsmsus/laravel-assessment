@@ -14,5 +14,11 @@ class Product extends Model
         'name',
         'description',
         'price',
+        'image_path'
     ];
+
+    public function upload()
+    {
+        return $this->belongsTo(\App\Models\Upload::class, 'image_path', 'filename');
+    }
 }

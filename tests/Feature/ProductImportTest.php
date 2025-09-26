@@ -45,7 +45,7 @@ class ProductImportTest extends TestCase
             'price' => 200,
         ]);
 
-        // Assert: new one inserted
+        // Assert: new one imported
         $this->assertDatabaseHas('products', [
             'sku' => 'SKU2001',
             'name' => 'Brand New',

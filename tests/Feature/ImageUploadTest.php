@@ -18,7 +18,13 @@ class ImageUploadTest extends TestCase
         Storage::fake('local');
 
         $file = UploadedFile::fake()->image('test.png', 1200, 800);
-        $checksum = hash_file('sha256', $file->getRealPath());
+
+        $ctx = hash_init('sha256');
+        $fp  = fopen(Storage::path($file->getRealPath()), 'rb');
+        hash_update_stream($ctx, $fp);
+        fclose($fp);
+        $checksum = hash_final($ctx);
+
 
         // Init
         $init = $this->postJson('/api/uploads/init', [
@@ -26,7 +32,7 @@ class ImageUploadTest extends TestCase
             'size'     => $file->getSize(),
             'checksum' => $checksum,
         ])->assertStatus(200)
-          ->json();
+            ->json();
 
         $uploadId = $init['upload_id'];
         $this->assertNotEmpty($uploadId);
@@ -43,7 +49,7 @@ class ImageUploadTest extends TestCase
             'upload_id'    => $uploadId,
             'total_chunks' => 1,
         ])->assertStatus(200)
-          ->assertJson(['status' => 'upload_complete']);
+            ->assertJson(['status' => 'upload_complete']);
 
         // Assert original + variants
         Storage::assertExists("uploads/test.png");
@@ -66,7 +72,7 @@ class ImageUploadTest extends TestCase
             'size'     => $file->getSize(),
             'checksum' => $checksum,
         ])->assertStatus(200)
-          ->json();
+            ->json();
 
         $uploadId = $init['upload_id'];
 
@@ -77,10 +83,10 @@ class ImageUploadTest extends TestCase
             'upload_id'    => $uploadId,
             'total_chunks' => 2, // claim 2 chunks but uploaded 0
         ])->assertStatus(422)
-          ->assertJsonStructure([
-              'error',
-              'missing_chunks',
-          ]);
+            ->assertJsonStructure([
+                'error',
+                'missing_chunks',
+            ]);
     }
 
     #[Test]
@@ -97,7 +103,7 @@ class ImageUploadTest extends TestCase
             'size'     => $file->getSize(),
             'checksum' => $wrongChecksum,
         ])->assertStatus(200)
-          ->json();
+            ->json();
 
         $uploadId = $init['upload_id'];
 
@@ -113,6 +119,6 @@ class ImageUploadTest extends TestCase
             'upload_id'    => $uploadId,
             'total_chunks' => 1,
         ])->assertStatus(422)
-          ->assertJson(['error' => 'Checksum mismatch']);
+            ->assertJson(['error' => 'Checksum mismatch']);
     }
 }

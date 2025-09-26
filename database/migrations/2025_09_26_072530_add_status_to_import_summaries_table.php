@@ -11,13 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('products', function (Blueprint $table) {
-            $table->id();
-            $table->string('sku')->unique();   // unique key
-            $table->string('name');
-            $table->text('description')->nullable();
-            $table->decimal('price', 10, 2);
-            $table->timestamps();
+        Schema::table('import_summaries', function (Blueprint $table) {
+            $table->string('status')->default('processing');
         });
     }
 
@@ -26,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::table('import_summaries', function (Blueprint $table) {
+            $table->dropColumn('status');
+        });
     }
 };

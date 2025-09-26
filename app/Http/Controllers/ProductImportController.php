@@ -13,22 +13,34 @@ class ProductImportController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:csv,txt|max:10240', // 10MB max
+            'file' => 'required|file|mimetypes:text/plain,text/csv,application/csv,application/vnd.ms-excel|max:10240',
         ]);
 
         // Store file temporarily
         $path = $request->file('file')->store('imports');
 
-        // Dispatch job to process file
-        ProcessProductImport::dispatch($path);
+        // Create summary row immediately
+        $importSummary = ImportSummary::create([
+            'file_path'  => $path,
+            'total'      => 0,
+            'imported'   => 0,
+            'updated'    => 0,
+            'invalid'    => 0,
+            'duplicates' => 0,
+            'status'     => 'processing',
+        ]);
+
+        // Dispatch job, pass ID so it can update instead of creating new row
+        ProcessProductImport::dispatch($path, $importSummary->id);
 
         return response()->json([
             'message' => 'File uploaded. Import is being processed.',
-            'file' => $path,
+            'summary_id' => $importSummary->id,
         ]);
     }
-    public function summary()
+
+    public function summary($id)
     {
-        return ImportSummary::latest()->first();
+        return ImportSummary::findOrFail($id);
     }
 }

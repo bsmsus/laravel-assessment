@@ -7,14 +7,20 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\Upload;
 use Intervention\Image\Laravel\Facades\Image;
+use Illuminate\Support\Facades\Cache;
 
 class ImageUploadController extends Controller
 {
-    /**
-     * Start a new upload session.
-     * Client sends filename, size, checksum.
-     * Server returns upload_id (UUID).
-     */
+
+    public function __construct()
+    {
+
+        // Ensure required directories exist
+        Storage::makeDirectory('chunks');
+        Storage::makeDirectory('uploads');
+        Storage::makeDirectory('uploads/variants');
+    }
+
     public function init(Request $request)
     {
         $request->validate([
@@ -22,24 +28,19 @@ class ImageUploadController extends Controller
             'size'     => 'required|integer',
             'checksum' => 'required|string', // SHA256 or MD5
         ]);
+        $cleanName = $this->sanitizeFilename($request->filename);
 
         $upload = Upload::create([
             'upload_id' => Str::uuid(),
-            'filename'  => $request->filename,
+            'filename'  => $cleanName . '.' . pathinfo($request->filename, PATHINFO_EXTENSION),
             'size'      => $request->size,
             'checksum'  => $request->checksum,
             'status'    => 'initiated',
         ]);
 
-        return response()->json([
-            'upload_id' => $upload->upload_id,
-        ]);
+        return response()->json(['upload_id' => $upload->upload_id]);
     }
 
-    /**
-     * Receive a single chunk of the file.
-     * Stores it temporarily under storage/app/chunks/{upload_id}/
-     */
     public function chunk(Request $request)
     {
         $request->validate([
@@ -49,14 +50,11 @@ class ImageUploadController extends Controller
         ]);
 
         $path = "chunks/{$request->upload_id}";
-        $request->file('file')->storeAs($path, $request->chunk_index);
+        $request->file('file')->storeAs($path, $request->chunk_index, 'public');
 
         return response()->json(['status' => 'chunk_received']);
     }
 
-    /**
-     * Merge chunks, verify checksum, and generate variants.
-     */
     public function complete(Request $request)
     {
         $request->validate([
@@ -66,77 +64,128 @@ class ImageUploadController extends Controller
 
         $upload = Upload::where('upload_id', $request->upload_id)->firstOrFail();
 
-        $finalPath = "uploads/{$upload->filename}";
-        $dir = dirname($finalPath);
-        Storage::makeDirectory($dir);
-
-        // Step 1: Verify all chunks exist
-        $chunkFiles = Storage::files("chunks/{$upload->upload_id}");
-        $uploadedIndices = array_map('basename', $chunkFiles);
-
-        $missing = [];
-        for ($i = 0; $i < $request->total_chunks; $i++) {
-            if (!in_array((string)$i, $uploadedIndices, true)) {
-                $missing[] = $i;
-            }
+        // If already completed, just return details idempotently
+        if ($upload->status === 'completed') {
+            return $this->details($upload->upload_id);
         }
 
-        if (!empty($missing)) {
-            return response()->json([
-                'error' => 'Missing chunks',
-                'missing_chunks' => $missing,
-            ], 422);
-        }
+        $finalPath = "uploads/{$upload->upload_id}_{$upload->filename}";
+        $chunkDir  = "chunks/{$upload->upload_id}";
 
-        // Step 2: Merge chunks sequentially
-        $output = fopen(Storage::path($finalPath), 'wb');
-        foreach (range(0, $request->total_chunks - 1) as $i) {
-            fwrite($output, Storage::get("chunks/{$upload->upload_id}/{$i}"));
-        }
-        fclose($output);
+        // Concurrency safety: only one finalize runs
+        return Cache::lock("upload:{$upload->upload_id}", 30)
+            ->block(10, function () use ($request, $upload, $finalPath, $chunkDir) {
+                // Step 1: verify all chunks
+                $chunkFiles = Storage::files($chunkDir);
+                $uploadedIndices = array_map('basename', $chunkFiles);
 
-        // Step 3: Verify checksum
-        $actualChecksum = hash_file('sha256', Storage::path($finalPath));
-        if ($actualChecksum !== $upload->checksum) {
-            return response()->json(['error' => 'Checksum mismatch'], 422);
-        }
+                $missing = [];
+                for ($i = 0; $i < $request->total_chunks; $i++) {
+                    if (!in_array((string) $i, $uploadedIndices, true)) {
+                        $missing[] = $i;
+                    }
+                }
+                if (!empty($missing)) {
+                    return response()->json([
+                        'error' => 'Missing chunks',
+                        'missing_chunks' => $missing,
+                    ], 422);
+                }
 
-        // Step 4: Generate image variants
-        $variantDir = "uploads/variants";
-        Storage::makeDirectory($variantDir);
+                // Step 2: merge chunks with streaming (low memory)
+                $output = fopen(Storage::path($finalPath), 'wb');
+                foreach (range(0, $request->total_chunks - 1) as $i) {
+                    $chunkStream = Storage::readStream("{$chunkDir}/{$i}");
+                    stream_copy_to_stream($chunkStream, $output);
+                    fclose($chunkStream);
+                }
+                fclose($output);
 
-        foreach ([256, 512, 1024] as $size) {
-            $img = Image::read(Storage::path($finalPath))
-                ->resize($size, $size, function ($constraint) {
-                    $constraint->aspectRatio();
-                    $constraint->upsize();
-                });
+                // Step 3: verify checksum
+                $ctx = hash_init('sha256');
+                $fp  = fopen(Storage::path($finalPath), 'rb');
+                hash_update_stream($ctx, $fp);
+                fclose($fp);
+                $actualChecksum = hash_final($ctx);
 
-            $variantPath = "{$variantDir}/{$size}_{$upload->filename}";
-            $img->save(Storage::path($variantPath));
-        }
+                if ($actualChecksum !== $upload->checksum) {
+                    Storage::delete($finalPath);
+                    return response()->json(['error' => 'Checksum mismatch'], 422);
+                }
 
-        $upload->update(['status' => 'completed']);
+                // Step 4: generate variants (safe paths include upload_id)
+                foreach ([256, 512, 1024] as $size) {
+                    $img = Image::read(Storage::path($finalPath))
+                        ->resize($size, $size, function ($constraint) {
+                            $constraint->aspectRatio();
+                            $constraint->upsize();
+                        });
 
-        return response()->json(['status' => 'upload_complete']);
+                    $variantPath = "uploads/variants/{$upload->upload_id}_{$size}.jpg";
+                    $img->save(Storage::path($variantPath));
+                }
+
+                // Step 5: cleanup chunks
+                Storage::deleteDirectory($chunkDir);
+
+                // Step 6: update status
+                $upload->update(['status' => 'completed']);
+
+                return response()->json([
+                    'status'   => 'upload_complete',
+                    'variants' => [
+                        '256'  => Storage::url("uploads/variants/{$upload->upload_id}_256.jpg"),
+                        '512'  => Storage::url("uploads/variants/{$upload->upload_id}_512.jpg"),
+                        '1024' => Storage::url("uploads/variants/{$upload->upload_id}_1024.jpg"),
+                    ]
+                ]);
+            });
     }
 
 
     public function status($uploadId)
     {
-        // Make sure this upload exists
         $upload = Upload::where('upload_id', $uploadId)->firstOrFail();
 
-        // Get list of uploaded chunk files
         $chunkFiles = Storage::files("chunks/{$uploadId}");
-
-        // Extract just the chunk indices (basename is like "0", "1", "2")
         $uploadedIndices = array_map('basename', $chunkFiles);
 
         return response()->json([
-            'upload_id' => $uploadId,
+            'upload_id'       => $uploadId,
             'uploaded_chunks' => $uploadedIndices,
-            'status' => $upload->status,
+            'status'          => $upload->status,
         ]);
+    }
+
+    public function details($uploadId)
+    {
+        $upload = Upload::where('upload_id', $uploadId)->firstOrFail();
+
+        $variants = [];
+        if ($upload->status === 'completed') {
+            // inside details()
+
+            $variants = [
+                '256'  => Storage::url("uploads/variants/{$upload->upload_id}_256.jpg"),
+                '512'  => Storage::url("uploads/variants/{$upload->upload_id}_512.jpg"),
+                '1024' => Storage::url("uploads/variants/{$upload->upload_id}_1024.jpg"),
+            ];
+        }
+
+        return response()->json([
+            'upload_id' => $upload->upload_id,
+            'filename'  => $upload->filename,
+            'status'    => $upload->status,
+            'variants'  => $variants,
+        ]);
+    }
+
+    private function sanitizeFilename($name)
+    {
+        // Remove extension if present
+        $name = pathinfo($name, PATHINFO_FILENAME);
+        // Replace spaces/commas/anything weird with underscores
+        $name = preg_replace('/[^A-Za-z0-9_\-]/', '_', $name);
+        return Str::lower($name);
     }
 }
