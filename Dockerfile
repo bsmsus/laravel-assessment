@@ -1,5 +1,8 @@
 # Stage 1: Build frontend assets
 FROM node:22 AS frontend
+
+ENV PORT=8080
+
 WORKDIR /app
 
 COPY package*.json vite.config.js ./

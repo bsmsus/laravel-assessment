@@ -7,6 +7,8 @@ if [ -z "$PORT" ]; then
 fi
 
 echo "✅ Using PORT=$PORT"
+echo "👉 Environment dump"
+env | grep PORT
 
 envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
