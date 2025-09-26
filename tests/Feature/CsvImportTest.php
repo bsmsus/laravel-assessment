@@ -1,40 +1,89 @@
 <?php
-namespace Tests\Feature; // or Unit
+
+namespace Tests\Feature;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use App\Models\Product;
+use App\Models\ImportSummary;
+use App\Jobs\ProcessProductImport;
+use Illuminate\Support\Facades\Bus;
 use PHPUnit\Framework\Attributes\Test;
 
 class CsvImportTest extends TestCase
 {
-    use RefreshDatabase;
+  use RefreshDatabase;
 
-    #[Test]
-    public function import_endpoint_produces_correct_summary_for_mixed_rows()
-    {
-        Product::factory()->create([
-            'sku' => 'SKU_EXIST',
-            'name' => 'OldName',
-            'price' => 100
-        ]);
+  #[Test]
+  public function it_stores_file_and_creates_import_summary_and_dispatches_job()
+  {
+    Bus::fake();
 
-        $csv = <<<CSV
+    // existing product for update
+    Product::factory()->create([
+      'sku' => 'SKU_EXIST',
+      'name' => 'OldName',
+      'price' => 100
+    ]);
+
+    $csv = <<<CSV
 sku,name,price
 SKU_EXIST,NewName,150
 SKU_NEW,FirstName,200
-BAD_ROW
+,MissingSKU,10
 SKU_NEW,DuplicateRow,300
 CSV;
 
-        $encoded = base64_encode($csv);
-        $response = $this->postJson('/api/import-products', ['csv' => $encoded]);
-        $response->assertStatus(200);
+    $file = UploadedFile::fake()->createWithContent('products.csv', $csv);
 
-        $result = $response->json('result');
-        $this->assertEquals(4, $result['total']);
-        $this->assertEquals(1, $result['imported']);    // SKU_NEW first time
-        $this->assertEquals(1, $result['updated']);     // SKU_EXIST updated
-        $this->assertEquals(2, $result['invalid']);     // BAD_ROW + duplicate of SKU_NEW
-    }
+    // phase 1: upload/import
+    $resp = $this->postJson('/api/products/import', ['file' => $file]);
+
+    $resp->assertStatus(200);
+    $resp->assertJsonStructure([
+      'message',
+      'summary_id',
+    ]);
+
+    $summaryId = $resp->json('summary_id');
+
+    // assert summary record created
+    $this->assertDatabaseHas('import_summaries', [
+      'id' => $summaryId,
+      'status' => 'processing',
+    ]);
+
+    // assert job dispatched
+    Bus::assertDispatched(ProcessProductImport::class, function ($job) use ($summaryId) {
+      return $job->getSummaryId() === $summaryId;
+    });
+  }
+
+  #[Test]
+  public function it_returns_summary_counts_after_processing()
+  {
+    // seed a finished ImportSummary row (simulate job finished)
+    $summary = ImportSummary::factory()->create([
+      'total' => 4,
+      'imported' => 1,
+      'updated' => 1,
+      'invalid' => 1,
+      'duplicates' => 1,
+      'status' => 'completed',
+    ]);
+
+    $resp = $this->getJson("/api/products/import/summary/{$summary->id}");
+    $resp->assertStatus(200);
+
+    $resp->assertJson([
+      'id' => $summary->id,
+      'total' => 4,
+      'imported' => 1,
+      'updated' => 1,
+      'invalid' => 1,
+      'duplicates' => 1,
+      'status' => 'completed',
+    ]);
+  }
 }

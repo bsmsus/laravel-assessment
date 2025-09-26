@@ -17,13 +17,10 @@ class ProcessProductImport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected string $path;
-    protected int $summaryId;
-
-    public function __construct(string $path, int $summaryId)
+    public function __construct(protected string $path, protected int $summaryId) {}
+    public function getSummaryId(): int
     {
-        $this->path = $path;
-        $this->summaryId = $summaryId;
+        return $this->summaryId;
     }
 
     public function handle()
