@@ -16,7 +16,7 @@ index 0000000..1a2b3cd
 +{
 +    use RefreshDatabase;
 +
-+    /** @test */
++    #[Test]
 +    public function import_endpoint_produces_correct_summary_for_mixed_rows()
 +    {
 +        Product::factory()->create([
@@ -66,7 +66,7 @@ index 0000000..92c0def
 +{
 +    use RefreshDatabase;
 +
-+    /** @test */
++    #[Test]
 +    public function chunked_upload_and_finalize_creates_variants_and_links_primary_image()
 +    {
 +        Storage::fake('public');
@@ -108,7 +108,7 @@ index 0000000..92c0def
 +        $this->assertNotNull($product->primary_image_id);
 +    }
 +
-+    /** @test */
++    #[Test]
 +    public function finalize_fails_when_checksum_mismatch_and_keeps_no_files()
 +    {
 +        Storage::fake('public');
@@ -136,7 +136,7 @@ index 0000000..92c0def
 +        Storage::disk('public')->assertMissing("images/{$uploadId}_1024.jpg");
 +    }
 +
-+    /** @test */
++    #[Test]
 +    public function reattaching_same_upload_as_primary_is_idempotent()
 +    {
 +        $product = Product::factory()->create();

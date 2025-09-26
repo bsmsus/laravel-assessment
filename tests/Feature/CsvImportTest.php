@@ -4,12 +4,13 @@ namespace Tests\Feature; // or Unit
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\Product;
+use PHPUnit\Framework\Attributes\Test;
 
 class CsvImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function import_endpoint_produces_correct_summary_for_mixed_rows()
     {
         Product::factory()->create([

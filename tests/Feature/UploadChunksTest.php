@@ -15,7 +15,7 @@ class UploadChunksTest extends TestCase
 {
   use RefreshDatabase;
 
-  /** @test */
+  #[Test]
   public function chunked_upload_and_finalize_creates_variants_and_links_primary_image()
   {
     Storage::fake('public');
@@ -77,7 +77,7 @@ class UploadChunksTest extends TestCase
     $this->assertNotNull($product->primary_image_id);
   }
 
-  /** @test */
+  #[Test]
   public function finalize_fails_when_checksum_mismatch_and_keeps_no_files()
   {
     Storage::fake('public');
@@ -128,7 +128,7 @@ class UploadChunksTest extends TestCase
     Storage::disk('public')->assertMissing("images/{$uploadId}_1024.jpg");
   }
 
-  /** @test */
+  #[Test]
   public function reattaching_same_upload_as_primary_is_idempotent()
   {
     $product = Product::factory()->create();
