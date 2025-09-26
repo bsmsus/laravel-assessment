@@ -1,9 +1,30 @@
+# Git
 .git
 .gitignore
+
+# Node
 node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+
+# PHP / Composer
 vendor
+composer.lock
+
+# Laravel runtime
+.env
 storage/logs
 storage/framework/cache
 storage/framework/sessions
 storage/framework/views
-.env
+
+# OS / IDE
+.DS_Store
+*.swp
+*.swo
+.idea
+.vscode
+
+# Docker
+docker-compose.override.yml
