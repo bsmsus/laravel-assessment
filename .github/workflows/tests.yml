@@ -1,10 +1,6 @@
 name: Laravel Tests
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push, pull_request]
 
 jobs:
   laravel-tests:
@@ -50,8 +46,8 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_DATABASE: laravel
-          DB_USERNAME: root
-          DB_PASSWORD: root
+          DB_USERNAME: laravel
+          DB_PASSWORD: secret
         run: php artisan migrate --force
 
       - name: Run tests
@@ -60,6 +56,6 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_DATABASE: laravel
-          DB_USERNAME: root
-          DB_PASSWORD: root
+          DB_USERNAME: laravel
+          DB_PASSWORD: secret
         run: php artisan test --no-interaction --stop-on-failure
