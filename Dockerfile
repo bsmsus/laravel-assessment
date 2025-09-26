@@ -11,7 +11,7 @@ RUN npm install && npm run build
 # Stage 2: PHP-FPM + Nginx container
 FROM php:8.3-fpm AS backend
 
-# Install system dependencies and PHP extensions (with gettext-base for envsubst)
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
     nginx supervisor gettext-base \
@@ -31,7 +31,7 @@ RUN mkdir -p public/build
 COPY --from=frontend /app/public/build ./public/build
 
 # Copy composer files and install deps
-COPY composer.json ./
+COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
 # Copy full app
@@ -43,9 +43,10 @@ RUN git config --global --add safe.directory /var/www/html
 # Run artisan discovery
 RUN php artisan package:discover --ansi
 
-# Ensure storage dirs exist
-RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
-    && chown -R www-data:www-data storage bootstrap/cache
+# Ensure storage and cache dirs exist with correct perms
+RUN mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} storage/app/chunks storage/app/uploads storage/app/uploads/variants \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 # ------------------------
 # Nginx & Supervisord setup
@@ -58,22 +59,8 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 # Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
 
-# Entrypoint for PORT substitution
-COPY ./entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Expose port 8080 (Railway will forward to this)
+EXPOSE 8080
 
-RUN mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
-
-ENTRYPOINT ["/entrypoint.sh"]
-
-RUN mkdir -p \
-    bootstrap/cache \
-    storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/views \
- && chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
-
+# Start supervisord (php-fpm + nginx)
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
