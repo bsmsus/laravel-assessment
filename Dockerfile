@@ -53,18 +53,17 @@ RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants
 
 # Nginx config (template with $PORT)
 RUN rm /etc/nginx/sites-enabled/default
+# Nginx config template (with ${PORT})
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf.template
 
 # Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
 
-# Entrypoint: substitute $PORT into nginx.conf
+# Entrypoint: replace ${PORT} at runtime
 COPY ./entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose HTTP port
-EXPOSE 80
+EXPOSE 8080
 
-# Start supervisord (manages php-fpm + nginx)
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
