@@ -1,8 +1,5 @@
 # Stage 1: Build frontend assets
 FROM node:22 AS frontend
-
-ENV PORT=8080
-
 WORKDIR /app
 
 COPY package*.json vite.config.js ./
@@ -17,7 +14,7 @@ FROM php:8.3-fpm AS backend
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
-    nginx supervisor gettext-base \
+    nginx supervisor \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo pdo_mysql mbstring gd zip \
     && pecl install redis \
@@ -54,17 +51,15 @@ RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants
 # Nginx & Supervisord setup
 # ------------------------
 
-# Nginx config (template with $PORT)
+# Nginx config
 RUN rm /etc/nginx/sites-enabled/default
-# Nginx config template (with ${PORT})
-COPY ./nginx.conf /etc/nginx/conf.d/default.conf.template
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
 # Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
 
-# Entrypoint: replace ${PORT} at runtime
-COPY ./entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Expose port 8080 (Railway keeps injecting this)
+EXPOSE 8080
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Start supervisord (manages php-fpm + nginx)
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
