@@ -41,6 +41,7 @@ class ProductImportController extends Controller
 
     public function summary($id)
     {
+        
         return ImportSummary::findOrFail($id);
     }
 }
