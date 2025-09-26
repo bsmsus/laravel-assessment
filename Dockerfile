@@ -1,6 +1,4 @@
-# ----------------------
 # Stage 1: Build frontend assets
-# ----------------------
 FROM node:22 AS frontend
 WORKDIR /app
 
@@ -10,13 +8,10 @@ COPY public ./public
 
 RUN npm install && npm run build
 
-
-# ----------------------
 # Stage 2: PHP-FPM + Nginx container
-# ----------------------
 FROM php:8.3-fpm AS backend
 
-# Install system dependencies and PHP extensions
+# Install system dependencies and PHP extensions (with gettext-base for envsubst)
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
     nginx supervisor gettext-base \
@@ -48,26 +43,28 @@ RUN git config --global --add safe.directory /var/www/html
 # Run artisan discovery
 RUN php artisan package:discover --ansi
 
-# ----------------------
-# Laravel storage + cache setup
-# ----------------------
-RUN mkdir -p \
-    storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/views \
-    bootstrap/cache \
- && chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
+# Ensure storage dirs exist
+RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
+    && chown -R www-data:www-data storage bootstrap/cache
 
-# ----------------------
-# Nginx + Supervisord setup
-# ----------------------
+# ------------------------
+# Nginx & Supervisord setup
+# ------------------------
+
+# Nginx config
 RUN rm -f /etc/nginx/conf.d/* && rm -f /etc/nginx/sites-enabled/*
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
+
+# Supervisord config
 COPY ./supervisord.conf /etc/supervisord.conf
 
-# Expose dynamic port for Railway
-EXPOSE 8080
+# Entrypoint for PORT substitution
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Start supervisord (manages php-fpm + nginx)
+RUN mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
