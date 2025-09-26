@@ -19,12 +19,7 @@ class ImageUploadTest extends TestCase
 
         $file = UploadedFile::fake()->image('test.png', 1200, 800);
 
-        $ctx = hash_init('sha256');
-        $fp  = fopen(Storage::path($file->getRealPath()), 'rb');
-        hash_update_stream($ctx, $fp);
-        fclose($fp);
-        $checksum = hash_final($ctx);
-
+        $checksum = hash_file('sha256', $file->getPathname());
 
         // Init
         $init = $this->postJson('/api/uploads/init', [
