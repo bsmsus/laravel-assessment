@@ -31,7 +31,7 @@ RUN mkdir -p public/build
 COPY --from=frontend /app/public/build ./public/build
 
 # Copy composer files and install deps
-COPY composer.json composer.lock ./
+COPY composer.json ./
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
 # Copy full app
