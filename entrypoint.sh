@@ -1,9 +1,6 @@
 #!/bin/sh
-set -e
 
-# Run migrations & cache stuff
-php artisan migrate --force || true
-php artisan config:cache
-php artisan route:cache
+# Replace ${PORT} in nginx.conf with actual Railway-provided $PORT
+envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
 exec "$@"

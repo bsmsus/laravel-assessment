@@ -8,13 +8,13 @@ COPY public ./public
 
 RUN npm install && npm run build
 
-
-# Stage 2: PHP CLI container
-FROM php:8.3-cli AS backend
+# Stage 2: PHP-FPM + Nginx container
+FROM php:8.3-fpm AS backend
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
+    nginx supervisor gettext-base \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo pdo_mysql mbstring gd zip \
     && pecl install redis \
@@ -26,32 +26,45 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Copy built frontend assets from Node stage
+# Copy built frontend assets
 RUN mkdir -p public/build
 COPY --from=frontend /app/public/build ./public/build
 
-# Copy composer files and install PHP deps
+# Copy composer files and install deps
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
-# Copy full app (⚠️ don't copy .env!)
+# Copy full app
 COPY . .
 
 # Git safe directory fix
 RUN git config --global --add safe.directory /var/www/html
 
-# Run artisan discover
+# Run artisan discovery
 RUN php artisan package:discover --ansi
 
-# Ensure storage dirs exist and permissions
+# Ensure storage dirs exist
 RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
     && chown -R www-data:www-data storage bootstrap/cache
 
-# Expose a port (Railway injects $PORT at runtime)
-EXPOSE 8080
+# ------------------------
+# Nginx & Supervisord setup
+# ------------------------
 
-# Run migrations + cache + start Laravel server on Railway's $PORT
-CMD php artisan migrate --force && \
-    php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
+# Nginx config (template with $PORT)
+RUN rm /etc/nginx/sites-enabled/default
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf.template
+
+# Supervisord config
+COPY ./supervisord.conf /etc/supervisord.conf
+
+# Entrypoint: substitute $PORT into nginx.conf
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Expose HTTP port
+EXPOSE 80
+
+# Start supervisord (manages php-fpm + nginx)
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
