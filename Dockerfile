@@ -10,7 +10,7 @@ RUN npm install && npm run build
 
 
 # Stage 2: Laravel with PHP
-FROM php:8.3-cli AS backend   # use cli instead of fpm so artisan serve works
+FROM php:8.3-cli AS backend
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
