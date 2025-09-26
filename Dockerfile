@@ -9,13 +9,12 @@ COPY public ./public
 RUN npm install && npm run build
 
 
-# Stage 2: PHP-FPM + Nginx container
-FROM php:8.3-fpm AS backend
+# Stage 2: PHP CLI container
+FROM php:8.3-cli AS backend
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libzip-dev zip \
-    nginx supervisor \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo pdo_mysql mbstring gd zip \
     && pecl install redis \
@@ -44,26 +43,15 @@ RUN git config --global --add safe.directory /var/www/html
 # Run artisan discover
 RUN php artisan package:discover --ansi
 
-# Ensure storage dirs exist
+# Ensure storage dirs exist and permissions
 RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
     && chown -R www-data:www-data storage bootstrap/cache
 
-# ------------------------
-# Nginx & Supervisord setup
-# ------------------------
+# Expose a port (Railway injects $PORT, EXPOSE is just for local use)
+EXPOSE 8080
 
-# Nginx config
-RUN rm /etc/nginx/sites-enabled/default
-COPY ./nginx.conf /etc/nginx/conf.d/default.conf
-
-# Supervisord config
-COPY ./supervisord.conf /etc/supervisord.conf
-
-# Expose HTTP port
-EXPOSE 80
-
-# Start supervisord (manages php-fpm + nginx)
-COPY ./entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+# Run migrations + cache + start Laravel server on Railway's $PORT
+CMD php artisan migrate --force && \
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan serve --host=0.0.0.0 --port=${PORT}
