@@ -8,7 +8,7 @@ mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache storage/framework
 chmod -R 775 storage bootstrap/cache storage/framework
 
-# Clear stale caches (skip view:clear in production)
+# Clear caches (do this once, early)
 php artisan config:clear || true
 php artisan cache:clear || true
 php artisan route:clear || true
@@ -19,8 +19,10 @@ mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf
 
 # Run migrations + seed demo data
 php artisan migrate --force
-php artisan db:seed --class=DiscountSeeder --force
-php artisan db:seed --class=UserSeeder --force
 
-# Start supervisord
+# IMPORTANT: seed after a clean bootstrapped state
+php artisan db:seed --class=UserSeeder --force
+php artisan db:seed --class=DiscountSeeder --force
+
+# Start supervisord (or any other process manager / CMD)
 exec "$@"
