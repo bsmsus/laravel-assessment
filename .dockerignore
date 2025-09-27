@@ -28,3 +28,4 @@ storage/framework/views
 
 # Docker
 docker-compose.override.yml
+/packages/*/vendor
