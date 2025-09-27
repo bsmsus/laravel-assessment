@@ -10,7 +10,6 @@ pnpm-lock.yaml
 
 # PHP / Composer
 vendor
-composer.lock
 
 # Laravel runtime
 .env

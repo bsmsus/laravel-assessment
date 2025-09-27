@@ -31,11 +31,15 @@ RUN mkdir -p public/build
 COPY --from=frontend /app/public/build ./public/build
 
 # Copy composer files and install deps
-COPY composer.json ./
+COPY composer.json composer.lock ./ 
+COPY packages ./packages
+
+# Now install
 RUN composer install --no-dev --no-scripts --optimize-autoloader
 
-# Copy full app
+# Finally copy rest of the app
 COPY . .
+
 
 # Git safe directory fix
 RUN git config --global --add safe.directory /var/www/html
