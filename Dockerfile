@@ -48,8 +48,14 @@ RUN git config --global --add safe.directory /var/www/html
 RUN php artisan package:discover --ansi
 
 # Ensure storage dirs exist
-RUN mkdir -p storage/app/chunks storage/app/uploads storage/app/uploads/variants \
-    && chown -R www-data:www-data storage bootstrap/cache
+RUN mkdir -p \
+    storage/app/chunks \
+    storage/app/uploads \
+    storage/app/uploads/variants \
+    storage/app/imports \
+ && chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
+
 
 # ------------------------
 # Nginx & Supervisord setup
