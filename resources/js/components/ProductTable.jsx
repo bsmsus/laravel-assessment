@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-axios.defaults.baseURL = "http://127.0.0.1:8080"; // update for Railway later
+axios.defaults.baseURL = window.location.origin;
 
 export default function ProductTable({ refreshKey, liveSummary }) {
   const [products, setProducts] = useState([]);

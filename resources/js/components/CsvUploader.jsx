@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-axios.defaults.baseURL = "http://127.0.0.1:8080";
+axios.defaults.baseURL = window.location.origin;
 
 export default function CsvUploader({ onImport }) {
   const [uploading, setUploading] = useState(false);
