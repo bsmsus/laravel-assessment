@@ -59,7 +59,7 @@ RUN mkdir -p \
     storage/framework/{cache,sessions,views} \
     bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
+ && chmod -R 775 storage bootstrap/cache storage/framework
 
 # ------------------------
 # Nginx & Supervisord setup
