@@ -1,0 +1,22 @@
+{
+  "name": "rahul/discounts",
+  "description": "User Discounts package for Laravel Assessment",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Rahul\\Discounts\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Rahul\\Discounts\\DiscountServiceProvider"
+      ]
+    }
+  },
+  "require": {
+    "php": "^8.3",
+    "illuminate/support": "^12.31"
+  }
+}

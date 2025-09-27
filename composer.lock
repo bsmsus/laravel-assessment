@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e6d0d7e79d8415f13b8ece7f214ef3cc",
+    "content-hash": "7d6f8b46c840a02e994a3efec17b8127",
     "packages": [
         {
             "name": "brick/math",
@@ -3377,6 +3377,39 @@
                 "source": "https://github.com/bobthecow/psysh/tree/v0.12.12"
             },
             "time": "2025-09-20T13:46:31+00:00"
+        },
+        {
+            "name": "rahul/discounts",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "packages/discounts",
+                "reference": "9e8c1ca120c30723a77e9b441c9e6925dd016e17"
+            },
+            "require": {
+                "illuminate/support": "^12.31",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Rahul\\Discounts\\DiscountServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Rahul\\Discounts\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "User Discounts package for Laravel Assessment",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "ralouphie/getallheaders",
@@ -8691,7 +8724,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "rahul/discounts": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
