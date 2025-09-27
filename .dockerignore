@@ -13,10 +13,10 @@ vendor
 
 # Laravel runtime
 .env
-storage/logs
-storage/framework/cache
-storage/framework/sessions
-storage/framework/views
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
 
 # OS / IDE
 .DS_Store

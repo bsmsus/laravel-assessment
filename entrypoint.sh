@@ -8,7 +8,7 @@ mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache storage/framework
 chmod -R 775 storage bootstrap/cache storage/framework
 
-# Clear stale caches
+# Clear stale caches (skip view:clear in production)
 php artisan config:clear || true
 php artisan cache:clear || true
 php artisan route:clear || true
