@@ -20,6 +20,7 @@ mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf
 # Run migrations + seed demo data
 php artisan migrate --force
 php artisan db:seed --class=DiscountSeeder --force
+php artisan db:seed --class=UserSeeder --force
 
 # Start supervisord
 exec "$@"
