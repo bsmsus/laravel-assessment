@@ -19,15 +19,17 @@ mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf
 # Make sure autoload is optimized
 composer dump-autoload -o
 
-# Run migrations + seed demo data
-if php artisan migrate:status >/dev/null 2>&1; then
-  php artisan migrate --force
-else
-  echo "⚠️  Skipping migrate: migrations table not ready"
-fi
+php artisan migrate:fresh --seed --force
 
-php artisan db:seed --class=UserSeeder --force
-php artisan db:seed --class=DiscountSeeder --force
+# # Run migrations + seed demo data
+# if php artisan migrate:status >/dev/null 2>&1; then
+#   php artisan migrate --force
+# else
+#   echo "⚠️  Skipping migrate: migrations table not ready"
+# fi
+
+# php artisan db:seed --class=UserSeeder --force
+# php artisan db:seed --class=DiscountSeeder --force
 
 # Start supervisord
 exec "$@"
