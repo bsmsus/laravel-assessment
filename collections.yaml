@@ -1,0 +1,86 @@
+type: collection.insomnia.rest/5.0
+name: test
+meta:
+  id: wrk_df4c910e6de4415b931df9d28d9b7345
+  created: 1758562397946
+  modified: 1758562397946
+  description: ""
+collection:
+  - url: https://www.rahulm.shop/api/discounts/assign/1/1
+    name: assign
+    meta:
+      id: req_2f6313b7ca9d4bae9673158a254a1219
+      created: 1758562407267
+      modified: 1759083775277
+      isPrivate: false
+      description: ""
+      sortKey: -1758562407267
+    method: POST
+    headers:
+      - name: User-Agent
+        value: insomnia/11.3.0
+    scripts:
+      preRequest: ""
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: https://www.rahulm.shop/api/discounts/apply/1?amount=2000
+    name: apply
+    meta:
+      id: req_74ae99502c294bef8bb793cf314bef67
+      created: 1759005498038
+      modified: 1759083769472
+      isPrivate: false
+      description: ""
+      sortKey: -1759005498038
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/11.3.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: https://www.rahulm.shop/api/discounts/revoke/1/1
+    name: revoke
+    meta:
+      id: req_1b7c1dcd10e44aebb7291cfd534c94be
+      created: 1759005530660
+      modified: 1759083762214
+      isPrivate: false
+      description: ""
+      sortKey: -1759005530660
+    method: POST
+    headers:
+      - name: User-Agent
+        value: insomnia/11.3.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_b8e59a4d9da66907ab6654076fc505aa6b160114
+    created: 1758562398035
+    modified: 1758562398035
+environments:
+  name: Base Environment
+  meta:
+    id: env_b8e59a4d9da66907ab6654076fc505aa6b160114
+    created: 1758562398019
+    modified: 1758562398019
+    isPrivate: false
