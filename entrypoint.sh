@@ -20,7 +20,12 @@ mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf
 composer dump-autoload -o
 
 # Run migrations + seed demo data
-php artisan migrate --force
+if php artisan migrate:status >/dev/null 2>&1; then
+  php artisan migrate --force
+else
+  echo "⚠️  Skipping migrate: migrations table not ready"
+fi
+
 php artisan db:seed --class=UserSeeder --force
 php artisan db:seed --class=DiscountSeeder --force
 
