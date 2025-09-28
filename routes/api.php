@@ -6,11 +6,9 @@ use App\Http\Controllers\ImageUploadController;
 use App\Models\Product;
 use App\Http\Controllers\DiscountController;
 
-
 Route::get('/products', function () {
     return Product::with('upload')->latest()->paginate(20);
 });
-
 
 Route::post('/products/import', [ProductImportController::class, 'import']);
 Route::get('/products/import/summary/{id}', [ProductImportController::class, 'summary']);

@@ -15,7 +15,6 @@ export default function ProductTable({ refreshKey, liveSummary }) {
     if (!liveSummary) fetchSummary();
   }, [page, refreshKey]);
 
-  // when liveSummary prop changes, update local state
   useEffect(() => {
     if (liveSummary) setSummary(liveSummary);
   }, [liveSummary]);

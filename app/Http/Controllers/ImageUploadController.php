@@ -15,7 +15,6 @@ class ImageUploadController extends Controller
     public function __construct()
     {
 
-        // Ensure required directories exist
         Storage::makeDirectory('chunks');
         Storage::makeDirectory('uploads');
         Storage::makeDirectory('uploads/variants');
@@ -26,7 +25,7 @@ class ImageUploadController extends Controller
         $request->validate([
             'filename' => 'required|string',
             'size'     => 'required|integer',
-            'checksum' => 'required|string', // SHA256 or MD5
+        
         ]);
         $cleanName = $this->sanitizeFilename($request->filename);
 
@@ -64,7 +63,6 @@ class ImageUploadController extends Controller
 
         $upload = Upload::where('upload_id', $request->upload_id)->firstOrFail();
 
-        // If already completed, just return details idempotently
         if ($upload->status === 'completed') {
             return $this->details($upload->upload_id);
         }
@@ -72,10 +70,8 @@ class ImageUploadController extends Controller
         $finalPath = "uploads/{$upload->upload_id}_{$upload->filename}";
         $chunkDir  = "chunks/{$upload->upload_id}";
 
-        // Concurrency safety: only one finalize runs
         return Cache::lock("upload:{$upload->upload_id}", 30)
             ->block(10, function () use ($request, $upload, $finalPath, $chunkDir) {
-                // Step 1: verify all chunks
                 $chunkFiles = Storage::files($chunkDir);
                 $uploadedIndices = array_map('basename', $chunkFiles);
 
@@ -92,7 +88,6 @@ class ImageUploadController extends Controller
                     ], 422);
                 }
 
-                // Step 2: merge chunks with streaming (low memory)
                 $output = fopen(Storage::path($finalPath), 'wb');
                 foreach (range(0, $request->total_chunks - 1) as $i) {
                     $chunkStream = Storage::readStream("{$chunkDir}/{$i}");
@@ -101,7 +96,6 @@ class ImageUploadController extends Controller
                 }
                 fclose($output);
 
-                // Step 3: verify checksum
                 $ctx = hash_init('sha256');
                 $fp  = fopen(Storage::path($finalPath), 'rb');
                 hash_update_stream($ctx, $fp);
@@ -113,7 +107,6 @@ class ImageUploadController extends Controller
                     return response()->json(['error' => 'Checksum mismatch'], 422);
                 }
 
-                // Step 4: generate variants (safe paths include upload_id)
                 foreach ([256, 512, 1024] as $size) {
                     $img = Image::read(Storage::path($finalPath))
                         ->resize($size, $size, function ($constraint) {
@@ -125,10 +118,8 @@ class ImageUploadController extends Controller
                     $img->save(Storage::path($variantPath));
                 }
 
-                // Step 5: cleanup chunks
                 Storage::deleteDirectory($chunkDir);
 
-                // Step 6: update status
                 $upload->update(['status' => 'completed']);
 
                 return response()->json([
@@ -163,7 +154,6 @@ class ImageUploadController extends Controller
 
         $variants = [];
         if ($upload->status === 'completed') {
-            // inside details()
 
             $variants = [
                 '256'  => Storage::url("uploads/variants/{$upload->upload_id}_256.jpg"),
@@ -182,9 +172,7 @@ class ImageUploadController extends Controller
 
     private function sanitizeFilename($name)
     {
-        // Remove extension if present
         $name = pathinfo($name, PATHINFO_FILENAME);
-        // Replace spaces/commas/anything weird with underscores
         $name = preg_replace('/[^A-Za-z0-9_\-]/', '_', $name);
         return Str::lower($name);
     }

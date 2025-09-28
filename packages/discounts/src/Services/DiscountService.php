@@ -69,7 +69,6 @@ class DiscountService
                     ->lockForUpdate()
                     ->first();
 
-                // ----- usage limit checks BEFORE applying -----
                 if (
                     $discount->usage_cap !== null &&
                     $userDiscount->usage_count >= $discount->usage_cap
@@ -92,7 +91,6 @@ class DiscountService
                 }
 
 
-                // ----- apply discount -----
                 $before = $final;
 
                 if ($discount->type === 'percentage') {
@@ -106,7 +104,6 @@ class DiscountService
                 $rounding = config('discounts.rounding', fn($v) => round($v, 2));
                 $final    = $rounding($final);
 
-                // ----- increment usage counts -----
                 $userDiscount->increment('usage_count');
                 $discount->increment('usage_count');
 

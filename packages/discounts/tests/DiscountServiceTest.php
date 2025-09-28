@@ -20,16 +20,7 @@ class DiscountServiceTest extends TestCase
             DiscountServiceProvider::class,
         ];
     }
-
-    // protected function defineDatabaseMigrations()
-    // {
-    //     // Run Laravel’s built-in migrations (users, etc.)
-    //     $this->loadLaravelMigrations();
-    //     echo 213;die;
-    //     // Run your package migrations
-    //     $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-    // }
-
+    
     #[Test]
     public function it_applies_a_percentage_discount_and_respects_usage_cap()
     {

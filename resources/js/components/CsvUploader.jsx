@@ -16,17 +16,14 @@ export default function CsvUploader({ onImport }) {
     try {
       setUploading(true);
 
-      // Upload file → backend returns summary_id
       const { data } = await axios.post("/api/products/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       const summaryId = data.summary_id;
 
-      // Let parent know we’ve started processing
       if (onImport) onImport({ liveSummary: { status: "processing" }, completed: false });
 
-      // Begin polling with that specific ID
       pollSummary(onImport, summaryId);
     } catch (err) {
       console.error("CSV import failed:", err);
@@ -55,7 +52,6 @@ export default function CsvUploader({ onImport }) {
         console.error("Polling summary failed", err);
       }
 
-      // safety stop (~10 minutes @ 2s interval)
       if (attempts > 300) {
         clearInterval(interval);
         alert("Import polling timed out. Please refresh.");
