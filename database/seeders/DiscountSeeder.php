@@ -12,7 +12,7 @@ class DiscountSeeder extends Seeder
         Discount::firstOrCreate(
             ['name' => 'Festive 20%'],
             [
-                'type' => 'percent',
+                'type' => 'percentage',
                 'value' => 20,
                 'active' => true,
                 'usage_limit_per_user' => 3,

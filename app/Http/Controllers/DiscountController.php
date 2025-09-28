@@ -56,4 +56,15 @@ class DiscountController extends Controller
             'final' => $final
         ]);
     }
+
+    public function eligibleFor(Request $request, $userId)
+    {
+        $user = User::findOrFail($userId);
+        $discounts = $this->service->eligibleFor($user);
+
+        return response()->json([
+            'user_id' => $user->id,
+            'eligible_discounts' => $discounts
+        ]);
+    }
 }

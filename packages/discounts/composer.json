@@ -18,5 +18,13 @@
   "require": {
     "php": "^8.3",
     "illuminate/support": "^12.31"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^10.6"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Rahul\\Discounts\\Tests\\": "packages/discounts/tests/"
+    }
   }
 }

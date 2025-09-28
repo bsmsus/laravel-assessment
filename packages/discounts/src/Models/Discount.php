@@ -9,7 +9,7 @@ class Discount extends Model
 {
     protected $fillable = [
         'name', 'type', 'value', 'active', 'expires_at',
-        'usage_limit_per_user', 'usage_limit_total', 'usage_count',
+        'usage_limit_per_user', 'usage_limit_total', 'usage_count','usage_cap'
     ];
 
     protected $casts = [
